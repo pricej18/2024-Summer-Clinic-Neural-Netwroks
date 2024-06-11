@@ -1,0 +1,179 @@
+import torch
+import torch.nn as nn
+import numpy as np
+import matplotlib.pyplot as plt
+
+# Step 1: Generate 2000 points using torch.normal()
+n_points = 2000
+mean = 4
+std_dev = 1
+data = torch.normal(mean, std_dev, size=(n_points, 2))
+
+# Step 2: Separate points into two classes based on a linear boundary line
+labels = (data[:, 1] > data[:, 0]).float()
+
+# Step 3: Plot the first graph with all points and the linear boundary line
+plt.figure(figsize=(8, 6))
+plt.scatter(data[:, 0], data[:, 1], c=labels, cmap='bwr', s=10)
+plt.plot([0, 8], [0, 8], color='black', linestyle='dashed')  # Linear boundary line
+plt.title('All Data Points with Linear Boundary')
+plt.xlabel('Feature 1')
+plt.ylabel('Feature 2')
+plt.show()
+
+# Step 4: Split data into training and test sets
+train_data, test_data = data[:1400], data[1400:]
+train_labels, test_labels = labels[:1400], labels[1400:]
+
+
+# Step 5: Define the neural network model
+class NeuralNetwork(nn.Module):
+    def __init__(self):
+        super(NeuralNetwork, self).__init__()
+        self.linear = nn.Linear(2, 1)
+
+    def forward(self, x):
+        return torch.sigmoid(self.linear(x))
+
+
+# Step 6: Train the neural network with the first 1400 points
+model = NeuralNetwork()
+criterion = nn.BCELoss()
+optimizer = torch.optim.SGD(model.parameters(), lr=0.01)
+
+num_epochs = 100
+for epoch in range(num_epochs):
+    model.train()
+    optimizer.zero_grad()   # Zeros the Grads before backwards
+    outputs = model(train_data).squeeze()    # calls the Training Data 1400 point
+    loss = criterion(outputs, train_labels)  # calculate loss
+    loss.backward()     # Backpropagation
+    optimizer.step()    # move to next data set
+
+# Step 7: Test the neural network with the remaining 600 points and plot the third graph
+# torch.nograd() means we do not use the gradients since this is the test data.
+with torch.no_grad():
+    test_outputs = model(test_data).squeeze()  # calls the test data set 600 points
+    predicted_labels = (test_outputs >= 0.5).float() # convert output to binary label
+
+# Step 8: Plot the second graph with the first 1400 points
+plt.figure(figsize=(8, 6))
+plt.scatter(train_data[:, 0], train_data[:, 1], c=1 - train_labels, cmap='bwr', s=10)  # Class 1: Red, Class 2: Blue
+plt.plot([0, 8], [0, 8], color='black', linestyle='dashed')  # Linear boundary line
+plt.title('Training Data with Linear Boundary')
+plt.xlabel('Feature 1')
+plt.ylabel('Feature 2')
+plt.show()
+
+# Step 9: Plot the third graph with the remaining 600 points
+plt.figure(figsize=(8, 6))
+for i in range(len(test_data)):
+    if test_labels[i] == predicted_labels[i] == 0:  # Class 1, correctly labeled
+        plt.scatter(test_data[i, 0], test_data[i, 1], c='red', s=10)
+    elif test_labels[i] == predicted_labels[i] == 1:  # Class 2, correctly labeled
+        plt.scatter(test_data[i, 0], test_data[i, 1], c='blue', s=10)
+    elif test_labels[i] != predicted_labels[i] == 1:  # Class 1, incorrectly labeled
+        plt.scatter(test_data[i, 0], test_data[i, 1], c='green', s=10)
+    elif test_labels[i] != predicted_labels[i] == 0:  # Class 2, incorrectly labeled
+        plt.scatter(test_data[i, 0], test_data[i, 1], c='orange', s=10)
+plt.plot([0, 8], [0, 8], color='black', linestyle='dashed')  # Linear boundary line
+plt.title('Test Data with Neural Network Predictions')
+plt.xlabel('Feature 1')
+plt.ylabel('Feature 2')
+plt.show()
+
+
+# Step 10: Compute the accuracy
+correct_predictions = (predicted_labels == test_labels).sum().item()
+total_predictions = len(test_labels)
+accuracy = correct_predictions / total_predictions
+print("Accuracy:", accuracy)
+
+# Step 10: Define a function to compute accuracy
+def compute_accuracy(predicted_labels, true_labels):
+    correct_predictions = (predicted_labels == true_labels).sum().item()
+    total_predictions = len(true_labels)
+    accuracy = correct_predictions / total_predictions
+    return accuracy
+
+# Step 11: Train the neural network with the first 1400 points and compute accuracy after each epoch
+accuracies = []
+for epoch in range(num_epochs):
+    model.train()
+    optimizer.zero_grad()
+    outputs = model(train_data).squeeze()
+    loss = criterion(outputs, train_labels)
+    loss.backward()
+    optimizer.step()
+
+    # Compute accuracy on training data
+    with torch.no_grad():
+        train_outputs = model(train_data).squeeze()
+        train_predicted_labels = (train_outputs >= 0.5).float()
+        train_accuracy = compute_accuracy(train_predicted_labels, train_labels)
+        accuracies.append(train_accuracy)
+    print(f"Epoch [{epoch + 1}/{num_epochs}], Loss: {loss.item()}, Train Accuracy: {train_accuracy}")
+
+# Step 12: Plot the accuracy curve
+plt.figure(figsize=(8, 6))
+plt.plot(range(1, num_epochs + 1), accuracies, marker='o')
+plt.title('Training Accuracy Curve')
+plt.xlabel('Epoch')
+plt.ylabel('Accuracy')
+plt.grid(True)
+plt.show()
+
+
+# Step 10: Define a function to train the model and compute accuracy
+# Step 10: Define a function to train the model and compute accuracy
+def train_and_compute_accuracy(model, criterion, optimizer, train_data, train_labels, test_data, test_labels, num_epochs=100):
+    accuracies = []
+    for epoch in range(num_epochs):
+        model.train()
+        optimizer.zero_grad()
+        outputs = model(train_data).squeeze()
+        loss = criterion(outputs, train_labels)
+        loss.backward()
+        optimizer.step()
+
+        # Compute accuracy on test data
+        with torch.no_grad():
+            test_outputs = model(test_data).squeeze()
+            predicted_labels = (test_outputs >= 0.5).float()
+            accuracy = compute_accuracy(predicted_labels, test_labels)
+            accuracies.append(accuracy)
+    return accuracies
+
+# Step 11: Train the model and compute accuracy multiple times
+num_runs = 1000
+all_accuracies = []
+
+for run in range(num_runs):
+    # Generate new data for each run
+    data = torch.normal(mean, std_dev, size=(n_points, 2))
+    labels = (data[:, 1] > data[:, 0]).float()
+    train_data, test_data = data[:1400], data[1400:]
+    train_labels, test_labels = labels[:1400], labels[1400:]
+
+    # Initialize and train the model
+    model = NeuralNetwork()
+    optimizer = torch.optim.SGD(model.parameters(), lr=0.01)
+    accuracies = train_and_compute_accuracy(model, criterion, optimizer, train_data, train_labels, test_data, test_labels)
+    all_accuracies.append(accuracies)
+
+# Step 12: Plot the accuracies for each run
+plt.figure(figsize=(8, 6))
+for run, accuracies in enumerate(all_accuracies):
+    plt.plot(range(1, num_epochs + 1), accuracies, label=f'Run {run + 1}', marker='o')
+plt.title('Test Accuracy Curve for Multiple Runs')
+plt.xlabel('Epoch')
+plt.ylabel('Accuracy')
+plt.legend()
+plt.grid(True)
+plt.show()
+
+# Step 13: Calculate and print the average accuracy across all runs
+average_accuracies = np.mean(all_accuracies, axis=0)
+average_accuracy = np.mean(average_accuracies)
+print("Average Accuracy across all runs:", average_accuracy)
+
